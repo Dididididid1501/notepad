@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
+  <title>Голосовой блокнот · Распознавание речи</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background: linear-gradient(145deg, #f5f7fc 0%, #e9eef4 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      padding: 1.5rem;
+    }
+
+    /* карточка приложения */
+    .app-card {
+      max-width: 600px;
+      width: 100%;
+      background: rgba(255,255,255,0.96);
+      backdrop-filter: blur(0px);
+      border-radius: 3rem;
+      box-shadow: 0 25px 45px -12px rgba(0,0,0,0.25), 0 2px 5px rgba(0,0,0,0.05);
+      overflow: hidden;
+      transition: all 0.2s ease;
+    }
+
+    /* хедер */
+    .header {
+      padding: 2rem 2rem 0.5rem 2rem;
+      text-align: center;
+      border-bottom: 1px solid rgba(0,0,0,0.05);
+    }
+
+    .header h1 {
+      font-size: 1.9rem;
+      font-weight: 600;
+      background: linear-gradient(135deg, #1F2B4E, #2C3E66);
+      background-clip: text;
+      -webkit-background-clip: text;
+      color: transparent;
+      letter-spacing: -0.3px;
+    }
+
+    .header p {
+      color: #5b6e8c;
+      margin-top: 0.5rem;
+      font-weight: 500;
+      font-size: 0.9rem;
+    }
+
+    /* основной контент (мобильная версия) */
+    .mobile-content {
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.8rem;
+    }
+
+    /* заглушка для десктопа */
+    .desktop-placeholder {
+      padding: 2.5rem 2rem;
+      text-align: center;
+      background: #fef6e0;
+      border-radius: 2rem;
+      margin: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .desktop-placeholder .icon {
+      font-size: 5rem;
+      filter: drop-shadow(0 8px 12px rgba(0,0,0,0.1));
+    }
+
+    .desktop-placeholder h3 {
+      font-size: 1.6rem;
+      color: #b45f06;
+      font-weight: 600;
+    }
+
+    .desktop-placeholder p {
+      font-size: 1rem;
+      color: #7a5a3a;
+      max-width: 280px;
+    }
+
+    /* кнопка записи (микрофон) */
+    .record-btn {
+      background: #1e2f4b;
+      border: none;
+      width: 110px;
+      height: 110px;
+      border-radius: 60px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.25s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+      box-shadow: 0 15px 25px -8px rgba(0,0,0,0.3), 0 0 0 0 rgba(66, 153, 225, 0);
+      background: radial-gradient(circle at 30% 20%, #2c3f64, #14202e);
+    }
+
+    .record-btn:active {
+      transform: scale(0.94);
+      box-shadow: 0 8px 15px -5px rgba(0,0,0,0.3);
+    }
+
+    .record-btn.active {
+      background: radial-gradient(circle at 30% 20%, #c2362b, #8b1e14);
+      box-shadow: 0 0 0 4px rgba(220, 53, 69, 0.3), 0 10px 20px -5px black;
+      animation: pulse 1.3s infinite;
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(194, 54, 43, 0.5); }
+      70% { box-shadow: 0 0 0 12px rgba(194, 54, 43, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(194, 54, 43, 0); }
+    }
+
+    .mic-icon {
+      font-size: 3.6rem;
+      color: white;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+      transition: all 0.2s;
+    }
+
+    /* информационная панель */
+    .status-box {
+      background: #f0f4fa;
+      border-radius: 2rem;
+      padding: 0.8rem 1.2rem;
+      text-align: center;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: #2c3e66;
+      letter-spacing: 0.3px;
+    }
+
+    /* блок вывода текста */
+    .result-area {
+      background: #ffffff;
+      border-radius: 2rem;
+      padding: 1.2rem 1.5rem;
+      min-height: 160px;
+      box-shadow: inset 0 1px 4px #0001, 0 4px 10px rgba(0,0,0,0.02);
+      border: 1px solid #e2edff;
+    }
+
+    .result-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 1px;
+      color: #7e8b9e;
+      margin-bottom: 0.7rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .transcript-text {
+      font-size: 1.2rem;
+      line-height: 1.45;
+      color: #1a2638;
+      font-weight: 500;
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+
+    .empty-placeholder {
+      color: #a0b3ce;
+      font-weight: 400;
+      font-style: italic;
+    }
+
+    /* кнопка очистки */
+    .clear-btn {
+      background: none;
+      border: 1px solid #cddfed;
+      padding: 0.6rem 1.4rem;
+      border-radius: 40px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: #4c6a9e;
+      cursor: pointer;
+      transition: 0.2s;
+      width: fit-content;
+      align-self: flex-end;
+    }
+
+    .clear-btn:active {
+      background: #eef3fc;
+      transform: scale(0.97);
+    }
+
+    /* футер с подсказкой */
+    .footer-note {
+      font-size: 0.7rem;
+      text-align: center;
+      padding: 1rem 1.5rem 1.8rem;
+      color: #6c7e9e;
+      border-top: 1px solid #eef3fc;
+      background: #ffffffd9;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    button {
+      background: none;
+      border: none;
+      font-family: inherit;
+    }
+
+    /* адаптация для совсем маленьких экранов */
+    @media (max-width: 480px) {
+      .mobile-content {
+        padding: 1.5rem;
+      }
+      .record-btn {
+        width: 90px;
+        height: 90px;
+      }
+      .mic-icon {
+        font-size: 3rem;
+      }
+      .transcript-text {
+        font-size: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-card" id="appRoot">
+  <div class="header">
+    <h1>🎙️ Голосовой текст</h1>
+    <p>Нажми на микрофон и говори — речь превратится в текст</p>
+  </div>
+
+  <!-- Блок для десктопа (заглушка) -->
+  <div id="desktopBlock" class="desktop-placeholder">
+    <div class="icon">📱💻</div>
+    <h3>Только мобильные устройства</h3>
+    <p>Для распознавания речи откройте этот сайт на <strong>смартфоне</strong> (iOS / Android).<br>На десктопе голосовой ввод не поддерживается в этом демо.</p>
+    <div style="font-size: 0.85rem; margin-top: 0.5rem;">👉 Chrome, Safari, Samsung Internet</div>
+  </div>
+
+  <!-- Блок для мобильной версии (с функционалом) -->
+  <div id="mobileBlock" class="hidden">
+    <div class="mobile-content">
+      <!-- кнопка записи -->
+      <div style="display: flex; justify-content: center;">
+        <button id="recordButton" class="record-btn" aria-label="Запись голоса">
+          <span class="mic-icon">🎤</span>
+        </button>
+      </div>
+
+      <!-- статус -->
+      <div id="statusMessage" class="status-box">
+        🟢 Готов к записи
+      </div>
+
+      <!-- результат расшифровки -->
+      <div class="result-area">
+        <div class="result-label">
+          <span>📄 РАСШИФРОВАННЫЙ ТЕКСТ</span>
+        </div>
+        <div id="transcriptDisplay" class="transcript-text">
+          <span class="empty-placeholder">(Здесь появится текст после голосовой команды)</span>
+        </div>
+      </div>
+
+      <!-- кнопка очистки -->
+      <div style="display: flex; justify-content: flex-end;">
+        <button id="clearButton" class="clear-btn">✖️ Очистить текст</button>
+      </div>
+    </div>
+    <div class="footer-note">
+      🎤 Говорите четко. После паузы текст появится автоматически.<br>
+      Разрешите доступ к микрофону при запросе браузера.
+    </div>
+  </div>
+</div>
+
+<script>
+  (function() {
+    // ---- 1. Определение мобильного устройства (user-agent + touch hints) ----
+    function isMobileDevice() {
+      // Проверка по user-agent на основные мобильные платформы
+      const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+      const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Windows Phone/i;
+      if (mobileRegex.test(userAgent)) return true;
+      
+      // Доп. проверка: ширина экрана и поддержка touch (часто у планшетов/телефонов)
+      if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+        // но это может быть и у современных лэптопов с сенсорным экраном.
+        // все же оставим дополнительную эвристику: если ширина <= 1024px и есть touch — считаем мобильным/планшетом
+        if (window.innerWidth <= 1024) return true;
+      }
+      return false;
+    }
+
+    const isMobile = isMobileDevice();
+    const desktopDiv = document.getElementById('desktopBlock');
+    const mobileDiv = document.getElementById('mobileBlock');
+    const appRoot = document.getElementById('appRoot');
+
+    // Показать заглушку для десктопа / показать интерфейс для мобильных
+    if (!isMobile) {
+      // Десктопный режим: показываем заглушку, скрываем мобильный блок
+      desktopDiv.classList.remove('hidden');
+      mobileDiv.classList.add('hidden');
+    } else {
+      // Мобильное устройство: скрываем заглушку, показываем основной функционал
+      desktopDiv.classList.add('hidden');
+      mobileDiv.classList.remove('hidden');
+      
+      // ---- 2. Инициализация Speech Recognition на мобильном устройстве ----
+      // Проверка поддержки API распознавания речи
+      const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+      let recognition = null;
+      let isRecording = false;
+      
+      // DOM элементы мобильного блока
+      const recordBtn = document.getElementById('recordButton');
+      const statusMsgDiv = document.getElementById('statusMessage');
+      const transcriptDisplay = document.getElementById('transcriptDisplay');
+      const clearBtn = document.getElementById('clearButton');
+      
+      // Текущий накопленный текст (последняя распознанная фраза, но по ТЗ просто выводим текст,
+      // будем заменять текущий текст новым. Так же добавим опцию накопления? лучше замена, как удобно.
+      // Но пользователь может говорить несколько раз — будет перезаписывать предыдущий результат.
+      // Сделаем замену при каждом новом успешном распознавании. Иначе если несколько предложений подряд,
+      // пользователь может нажать "очистить" или записывать снова. Но можно также добавить режим добавления,
+      // но условие: расшифровка в текст --- вывод текста на экран. Будем просто заменять последний результат.
+      let currentTranscript = '';
+      
+      function updateTranscriptUI(text) {
+        if (!text || text.trim() === '') {
+          transcriptDisplay.innerHTML = '<span class="empty-placeholder">(Здесь появится текст после голосовой команды)</span>';
+        } else {
+          transcriptDisplay.innerText = text;
+        }
+      }
+      
+      function setStatus(message, isError = false) {
+        statusMsgDiv.innerHTML = message;
+        if (isError) {
+          statusMsgDiv.style.backgroundColor = "#ffe6e5";
+          statusMsgDiv.style.color = "#b91c1c";
+        } else {
+          statusMsgDiv.style.backgroundColor = "#f0f4fa";
+          statusMsgDiv.style.color = "#2c3e66";
+        }
+      }
+      
+      // Очистка текста
+      clearBtn.addEventListener('click', () => {
+        currentTranscript = '';
+        updateTranscriptUI('');
+        setStatus('🧹 Текст очищен. Готов к записи');
+      });
+      
+      // Функция остановки записи (если активна)
+      function stopRecording() {
+        if (recognition && isRecording) {
+          try {
+            recognition.stop();
+          } catch(e) {
+            // если уже остановлено, игнорируем
+          }
+        }
+        // Сброс визуального состояния кнопки
+        if (recordBtn) {
+          recordBtn.classList.remove('active');
+          const micSpan = recordBtn.querySelector('.mic-icon');
+          if (micSpan) micSpan.innerHTML = '🎤';
+        }
+        isRecording = false;
+        // Не меняем статус на "готов", если только не вызвано отдельно (оставим на обработчике end)
+      }
+      
+      // Инициализация распознавателя с параметрами
+      function initRecognition() {
+        if (!SpeechRecognitionAPI) {
+          setStatus('❌ Ваш браузер не поддерживает распознавание речи. Попробуйте Chrome / Safari на Android или iOS.', true);
+          if(recordBtn) recordBtn.disabled = true;
+          return null;
+        }
+        const newRecog = new SpeechRecognitionAPI();
+        newRecog.continuous = false;       // однократное распознавание после паузы (удобно)
+        newRecog.interimResults = false;   // только финальные результаты (чистый текст)
+        newRecog.lang = 'ru-RU';           // русский язык, хорошо для распознавания
+        newRecog.maxAlternatives = 1;
+        return newRecog;
+      }
+      
+      // Обработчики событий для конкретного экземпляра
+      function bindRecognitionEvents(recogInstance) {
+        // Когда распознавание успешно
+        recogInstance.onresult = (event) => {
+          const lastResult = event.results[event.results.length - 1];
+          if (lastResult && lastResult.isFinal) {
+            const recognizedText = lastResult[0].transcript;
+            if (recognizedText && recognizedText.trim().length > 0) {
+              currentTranscript = recognizedText;
+              updateTranscriptUI(currentTranscript);
+              setStatus(`✅ Распознано: "${recognizedText.substring(0, 50)}${recognizedText.length > 50 ? '…' : ''}"`);
+            } else {
+              setStatus('⚠️ Не удалось распознать речь. Попробуйте еще раз.', false);
+            }
+          }
+        };
+        
+        recogInstance.onerror = (event) => {
+          console.warn('SpeechRecognition error:', event.error);
+          let errorMessage = '';
+          switch(event.error) {
+            case 'not-allowed':
+              errorMessage = '🎙️ Доступ к микрофону запрещён. Разрешите доступ в настройках браузера.';
+              break;
+            case 'no-speech':
+              errorMessage = '🤐 Речь не обнаружена. Попробуйте говорить громче.';
+              break;
+            case 'audio-capture':
+              errorMessage = '🎧 Не найден микрофон. Подключите гарнитуру или встроенный микрофон.';
+              break;
+            case 'network':
+              errorMessage = '🌐 Ошибка сети. Проверьте соединение.';
+              break;
+            default:
+              errorMessage = `Ошибка: ${event.error}`;
+          }
+          setStatus(`❌ ${errorMessage}`, true);
+          // останавливаем запись и сбрасываем кнопку
+          if (isRecording) {
+            if (recordBtn) recordBtn.classList.remove('active');
+            const micSpan = recordBtn?.querySelector('.mic-icon');
+            if (micSpan) micSpan.innerHTML = '🎤';
+            isRecording = false;
+          }
+        };
+        
+        recogInstance.onend = () => {
+          // Распознавание завершилось (автоматически после паузы или при вызове stop)
+          if (isRecording) {
+            // если isRecording true, значит, это не было ручной остановкой из кнопки?
+            // В любом случае завершаем сессию
+            if (recordBtn) recordBtn.classList.remove('active');
+            const micSpan = recordBtn?.querySelector('.mic-icon');
+            if (micSpan) micSpan.innerHTML = '🎤';
+            isRecording = false;
+            if (!statusMsgDiv.innerHTML.includes('Распознано') && !statusMsgDiv.innerHTML.includes('Текст очищен') && !statusMsgDiv.innerHTML.includes('Готов')) {
+              setStatus('🎙️ Готов к новой записи');
+            } else if (statusMsgDiv.innerHTML.includes('Ошибка') || statusMsgDiv.innerHTML.includes('не обнаружена')) {
+              setStatus('🎙️ Нажмите микрофон, чтобы повторить');
+            } else {
+              // если статус уже "распознано" — оставляем, но можно дополнить
+              if (!statusMsgDiv.innerHTML.includes('Распознано')) {
+                setStatus('🎙️ Готов к записи');
+              }
+            }
+          }
+        };
+        
+        recogInstance.onstart = () => {
+          isRecording = true;
+          if (recordBtn) {
+            recordBtn.classList.add('active');
+            const micSpan = recordBtn.querySelector('.mic-icon');
+            if (micSpan) micSpan.innerHTML = '⏺️';
+          }
+          setStatus('🔴 Запись... Говорите чётко');
+        };
+      }
+      
+      // Функция запуска записи
+      function startRecording() {
+        if (!SpeechRecognitionAPI) {
+          setStatus('❌ Speech Recognition не поддерживается. Обновите браузер.', true);
+          return;
+        }
+        
+        // Создаём новый экземпляр каждый раз, чтобы избежать проблем с повторным использованием
+        const newRecognition = initRecognition();
+        if (!newRecognition) return;
+        
+        // Привязываем события
+        bindRecognitionEvents(newRecognition);
+        recognition = newRecognition;
+        
+        try {
+          recognition.start();
+        } catch (err) {
+          console.error('Ошибка запуска распознавания:', err);
+          setStatus('⚠️ Не удалось запустить запись. Попробуйте перезагрузить страницу.', true);
+          if (recordBtn) recordBtn.classList.remove('active');
+          const micSpan = recordBtn?.querySelector('.mic-icon');
+          if (micSpan) micSpan.innerHTML = '🎤';
+          isRecording = false;
+        }
+      }
+      
+      // Обработка клика по кнопке микрофона
+      if (recordBtn) {
+        recordBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          // Если уже идёт запись — останавливаем её
+          if (isRecording) {
+            if (recognition) {
+              try {
+                recognition.stop();
+              } catch(stopperr) {
+                // игнорим
+              }
+            }
+            // Визуально сбросим состояние (обработчик onend тоже сбросит, но сделаем сразу для отзывчивости)
+            recordBtn.classList.remove('active');
+            const micSpan = recordBtn.querySelector('.mic-icon');
+            if (micSpan) micSpan.innerHTML = '🎤';
+            isRecording = false;
+            setStatus('⏸️ Запись остановлена. Нажмите микрофон снова, чтобы продолжить.');
+          } else {
+            // Начинаем новую запись
+            // Перед запуском проверим, не висит ли старый recognition, и уничтожим ссылку
+            if (recognition) {
+              try {
+                recognition.abort();
+              } catch(e) {}
+              recognition = null;
+            }
+            startRecording();
+          }
+        });
+      }
+      
+      // Дополнительно: если страница на мобильном, но API отсутствует - покажем предупреждение и деактивируем кнопку
+      if (!SpeechRecognitionAPI) {
+        setStatus('⚠️ Ваш браузер не поддерживает голосовой ввод. Используйте Chrome / Safari.', true);
+        if (recordBtn) {
+          recordBtn.disabled = true;
+          recordBtn.style.opacity = '0.5';
+          recordBtn.style.filter = 'grayscale(0.3)';
+        }
+      }
+      
+      // Небольшая подсказка для пользователя: при первом касании кнопки браузер запросит разрешение.
+      // Эмуляция нормального поведения.
+      
+      // Очистка текста также сбрасывает currentTranscript
+      // Добавим также обработчик на случай, если пользователь хочет начать с чистого листа
+      
+      // Полезная функция: если текущий сеанс завис, можно пересоздать
+      window.addEventListener('pageshow', () => {
+        if (isRecording && recognition) {
+          // если страница стала видимой, а запись зависла - принудительно сбросим состояние кнопки
+          if (recordBtn) recordBtn.classList.remove('active');
+          const micSpan = recordBtn?.querySelector('.mic-icon');
+          if (micSpan) micSpan.innerHTML = '🎤';
+          isRecording = false;
+          setStatus('🔄 Сессия обновлена. Готов к записи');
+        }
+      });
+      
+      // начальное состояние интерфейса
+      updateTranscriptUI('');
+      setStatus('🎙️ Нажмите на микрофон и разрешите доступ');
+    }
+    
+    // Доп. корректировка отображения при изменении ориентации (чтобы заглушка оставалась корректной)
+    window.addEventListener('resize', () => {
+      // Если мы на десктопе, но разрешение экрана поменялось (например, повернули планшет? но десктопная заглушка не должна меняться)
+      // Поскольку при загрузке уже определён тип устройства, переопределять не будем — это финальное решение.
+      // Но для редких гибридных устройств можно перепроверить при сильном изменении ширины.
+      // Но во избежание ложных переходов, лучше оставить как есть.
+    });
+  })();
+</script>
+</body>
+</html>
